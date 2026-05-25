@@ -465,6 +465,17 @@ function validateHole(teamId, holeNumber) {
   render();
 }
 
+function quickSetScore(teamId, holeNumber, playerId, field, delta) {
+  const currentHole = hole(holeNumber);
+  const current = getPlayerScore(teamId, holeNumber, playerId);
+  const fallback = field === "gross" ? currentHole.par : 2;
+  const raw = current[field] === "" ? fallback : Number(current[field]);
+  const min = field === "gross" ? 1 : 0;
+  const max = field === "gross" ? 12 : 6;
+  const next = Math.max(min, Math.min(max, raw + delta));
+  updatePlayerScore(teamId, holeNumber, playerId, field, next);
+}
+
 function updatePlayer(playerId, field, value) {
   if (!isAdmin()) return;
   state.players = state.players.map((item) => (item.id === playerId ? { ...item, [field]: field === "handicap" ? Number(value) : value } : item));
@@ -593,7 +604,7 @@ function render() {
     <header class="topbar">
       <div class="topbar-inner">
         <div class="brand">
-          <img src="assets/open-golf-connect.jpg" alt="Open Golf Connect" />
+          <img src="open-golf-connect.jpg" alt="Open Golf Connect" />
           <div>
             <h1>Open Golf Connect</h1>
             <p>Joyenval · shamble à 2 · brut, net et putts</p>
@@ -604,7 +615,7 @@ function render() {
       </div>
     </header>
     <main class="container">
-      ${renderHero()}
+      ${state.activeView === "home" ? renderHero() : ""}
       ${renderTabs()}
       <section class="view ${state.activeView === "home" ? "active" : ""}">${renderHome()}</section>
       <section class="view ${state.activeView === "course" ? "active" : ""}">${renderCourse()}</section>
@@ -619,7 +630,7 @@ function renderLogin() {
   return `
     <main class="login-screen">
       <form class="login-panel" onsubmit="login(event)">
-        <img class="login-logo" src="assets/open-golf-connect.jpg" alt="Open Golf Connect" />
+        <img class="login-logo" src="open-golf-connect.jpg" alt="Open Golf Connect" />
         <h1>Open Golf Connect</h1>
         <p>Connexion joueur ou administrateur.</p>
         <div class="field">
@@ -881,26 +892,9 @@ function renderScoring() {
               `).join("")}
             </div>
           </div>
-          ${selectedTeam.players.map((playerId) => {
-            const currentPlayer = player(playerId);
-            const score = getPlayerScore(selectedTeam.id, selectedHole.number, playerId);
-            return `
-              <div class="score-row">
-                <div>
-                  <strong>${currentPlayer.name}</strong>
-                  <p class="muted">Coups rendus sur ce trou : ${strokesForHole(playerId, selectedHole.number)}</p>
-                </div>
-                <div class="field">
-                  <label>Brut</label>
-                  <input type="number" min="1" max="12" placeholder="${selectedHole.par}" value="${score.gross}" onchange="updatePlayerScore('${selectedTeam.id}', ${selectedHole.number}, '${playerId}', 'gross', this.value)" />
-                </div>
-                <div class="field">
-                  <label>Putts</label>
-                  <input type="number" min="0" max="6" placeholder="2" value="${score.putts}" onchange="updatePlayerScore('${selectedTeam.id}', ${selectedHole.number}, '${playerId}', 'putts', this.value)" />
-                </div>
-              </div>
-            `;
-          }).join("")}
+          <div class="mobile-score-list">
+            ${selectedTeam.players.map((playerId) => renderScorePlayerRow(selectedTeam.id, selectedHole, playerId)).join("")}
+          </div>
           <div class="quick-actions">
             <button class="btn primary" onclick="validateHole('${selectedTeam.id}', ${selectedHole.number})">${validated ? "Trou validé · passer au suivant" : "Valider le trou"}</button>
             <span class="badge ${validated ? "blue" : "gold"}">${validated ? "Score validé" : "En attente de validation"}</span>
@@ -921,9 +915,39 @@ function renderScoring() {
             <div class="metric"><span>Putts</span><strong>${result.putts}</strong></div>
             <div class="metric"><span>Drive</span><strong>${player(drive).name}</strong></div>
           </div>
-          ${renderSummaryTable("mini-summary")}
         </div>
       </aside>
+    </div>
+  `;
+}
+
+function renderScorePlayerRow(teamId, selectedHole, playerId) {
+  const currentPlayer = player(playerId);
+  const score = getPlayerScore(teamId, selectedHole.number, playerId);
+  const grossValue = score.gross === "" ? "" : score.gross;
+  const puttValue = score.putts === "" ? "" : score.putts;
+  return `
+    <div class="mobile-player-score-row">
+      <div class="mobile-player-name">
+        <strong>${currentPlayer.name}</strong>
+        <small>${strokesForHole(playerId, selectedHole.number)} rendu · ${selectedHole.source} ${selectedHole.sourceHole}</small>
+      </div>
+      <div class="mobile-stepper">
+        <span>Score</span>
+        <div>
+          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', -1)">−</button>
+          <input type="number" min="1" max="12" placeholder="${selectedHole.par}" value="${grossValue}" onchange="updatePlayerScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', this.value)" />
+          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', 1)">+</button>
+        </div>
+      </div>
+      <div class="mobile-stepper compact">
+        <span>Putts</span>
+        <div>
+          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', -1)">−</button>
+          <input type="number" min="0" max="6" placeholder="2" value="${puttValue}" onchange="updatePlayerScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', this.value)" />
+          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', 1)">+</button>
+        </div>
+      </div>
     </div>
   `;
 }

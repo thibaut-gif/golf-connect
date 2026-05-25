@@ -63,7 +63,7 @@ button {
   padding: 20px;
   background:
     linear-gradient(rgba(16, 53, 44, 0.78), rgba(16, 53, 44, 0.88)),
-    url("assets/open-golf-connect.jpg") center / cover;
+    url("./open-golf-connect.jpg") center / cover;
 }
 
 .login-panel {
@@ -162,7 +162,7 @@ button {
   overflow: hidden;
   background:
     linear-gradient(90deg, rgba(11, 33, 29, 0.82), rgba(11, 33, 29, 0.22)),
-    url("assets/open-golf-connect.jpg") center / cover;
+    url("./open-golf-connect.jpg") center / cover;
   display: flex;
   align-items: flex-end;
   padding: 28px;
@@ -492,21 +492,94 @@ button {
 }
 
 .drive-picker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 .drive-picker label {
   display: flex;
   align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.drive-picker input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.mobile-score-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-player-score-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116px 104px;
   gap: 8px;
-  min-height: 42px;
-  padding: 0 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.mobile-player-name strong {
+  display: block;
+  font-size: 16px;
+}
+
+.mobile-player-name small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mobile-stepper {
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-stepper span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mobile-stepper div {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 4px;
+}
+
+.mobile-stepper button {
+  min-width: 30px;
+  min-height: 34px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: white;
-  font-weight: 800;
+  color: var(--green-dark);
+  font-weight: 900;
+}
+
+.mobile-stepper input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 900;
 }
 
 .totals {
@@ -661,6 +734,25 @@ button {
   .score-row,
   .summary-row {
     grid-template-columns: 1fr;
+  }
+
+  .mobile-player-score-row {
+    grid-template-columns: 1fr 92px 84px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .mobile-stepper div {
+    grid-template-columns: 24px minmax(0, 1fr) 24px;
+  }
+
+  .mobile-stepper button,
+  .mobile-stepper input {
+    min-height: 32px;
+  }
+
+  .drive-picker {
+    gap: 10px;
   }
 
   .hole-switcher {

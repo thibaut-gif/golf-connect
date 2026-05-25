@@ -5,7 +5,7 @@ const LOCAL_ASSETS = [
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./assets/open-golf-connect.jpg",
+  "./open-golf-connect.jpg",
   "./icon-192.jpg",
   "./icon-512.jpg",
 ];
