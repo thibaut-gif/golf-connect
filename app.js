@@ -93,7 +93,9 @@ function createInitialState() {
   return {
     activeView: "home",
     selectedTeamId: "team-luc-thibaut",
+    selectedSummaryTeamId: "team-luc-thibaut",
     selectedHole: 1,
+    activeScoreCell: null,
     currentHoles: {},
     handicapAllowance: 85,
     courseLocked: false,
@@ -405,6 +407,7 @@ function selectHole(teamId, holeNumber) {
   const selectedTeam = team(teamId);
   if (!isAdmin() && selectedTeam?.id !== teamForPlayer(session?.playerId)?.id) return;
   state.selectedHole = holeNumber;
+  state.activeScoreCell = null;
   state.currentHoles = { ...state.currentHoles, [teamId]: holeNumber };
   saveState();
   render();
@@ -414,6 +417,7 @@ function selectTeamForScoring(teamId) {
   if (!isAdmin() && teamId !== teamForPlayer(session?.playerId)?.id) return;
   state.selectedTeamId = teamId;
   state.selectedHole = currentHoleForTeam(teamId);
+  state.activeScoreCell = null;
   saveState();
   render();
 }
@@ -460,20 +464,49 @@ function validateHole(teamId, holeNumber) {
   state.validatedHoles = { ...state.validatedHoles, [validationKey(teamId, holeNumber)]: true };
   const nextHole = holeNumber === 18 ? 1 : holeNumber + 1;
   state.selectedHole = nextHole;
+  state.activeScoreCell = null;
   state.currentHoles = { ...state.currentHoles, [teamId]: nextHole };
   saveState();
   render();
 }
 
-function quickSetScore(teamId, holeNumber, playerId, field, delta) {
-  const currentHole = hole(holeNumber);
-  const current = getPlayerScore(teamId, holeNumber, playerId);
-  const fallback = field === "gross" ? currentHole.par : 2;
-  const raw = current[field] === "" ? fallback : Number(current[field]);
-  const min = field === "gross" ? 1 : 0;
-  const max = field === "gross" ? 12 : 6;
-  const next = Math.max(min, Math.min(max, raw + delta));
-  updatePlayerScore(teamId, holeNumber, playerId, field, next);
+function scoreCellId(teamId, holeNumber, playerId, field) {
+  return `${teamId}:${holeNumber}:${playerId}:${field}`;
+}
+
+function parseScoreCell(cellId) {
+  const [teamId, holeNumber, playerId, field] = String(cellId || "").split(":");
+  return { teamId, holeNumber: Number(holeNumber), playerId, field };
+}
+
+function selectScoreCell(teamId, holeNumber, playerId, field) {
+  const selectedTeam = team(teamId);
+  if (!isAdmin() && selectedTeam?.id !== teamForPlayer(session?.playerId)?.id) return;
+  state.activeScoreCell = scoreCellId(teamId, holeNumber, playerId, field);
+  saveLocalOnly();
+  render();
+}
+
+function keypadScore(value) {
+  if (!state.activeScoreCell) return;
+  const { teamId, holeNumber, playerId, field } = parseScoreCell(state.activeScoreCell);
+  if (!teamId || !playerId || !field) return;
+  updatePlayerScore(teamId, holeNumber, playerId, field, Number(value));
+  const selectedTeam = team(teamId);
+  const currentIndex = selectedTeam.players.indexOf(playerId);
+  if (field === "gross") {
+    state.activeScoreCell = scoreCellId(teamId, holeNumber, playerId, "putts");
+  } else if (currentIndex >= 0 && currentIndex < selectedTeam.players.length - 1) {
+    state.activeScoreCell = scoreCellId(teamId, holeNumber, selectedTeam.players[currentIndex + 1], "gross");
+  }
+  saveLocalOnly();
+  render();
+}
+
+function clearScoreCell() {
+  if (!state.activeScoreCell) return;
+  const { teamId, holeNumber, playerId, field } = parseScoreCell(state.activeScoreCell);
+  updatePlayerScore(teamId, holeNumber, playerId, field, "");
 }
 
 function updatePlayer(playerId, field, value) {
@@ -563,6 +596,13 @@ function combinedTotals() {
     },
     { gross: 0, net: 0, putts: 0, played: 0, validated: 0, par: 0 },
   );
+}
+
+function setSummaryTeam(teamId) {
+  if (!team(teamId)) return;
+  state.selectedSummaryTeamId = teamId;
+  saveLocalOnly();
+  render();
 }
 
 function playerStats(playerId) {
@@ -895,6 +935,7 @@ function renderScoring() {
           <div class="mobile-score-list">
             ${selectedTeam.players.map((playerId) => renderScorePlayerRow(selectedTeam.id, selectedHole, playerId)).join("")}
           </div>
+          ${renderScoreKeypad()}
           <div class="quick-actions">
             <button class="btn primary" onclick="validateHole('${selectedTeam.id}', ${selectedHole.number})">${validated ? "Trou validé · passer au suivant" : "Valider le trou"}</button>
             <span class="badge ${validated ? "blue" : "gold"}">${validated ? "Score validé" : "En attente de validation"}</span>
@@ -926,33 +967,46 @@ function renderScorePlayerRow(teamId, selectedHole, playerId) {
   const score = getPlayerScore(teamId, selectedHole.number, playerId);
   const grossValue = score.gross === "" ? "" : score.gross;
   const puttValue = score.putts === "" ? "" : score.putts;
+  const grossCell = scoreCellId(teamId, selectedHole.number, playerId, "gross");
+  const puttCell = scoreCellId(teamId, selectedHole.number, playerId, "putts");
   return `
     <div class="mobile-player-score-row">
       <div class="mobile-player-name">
         <strong>${currentPlayer.name}</strong>
         <small>${strokesForHole(playerId, selectedHole.number)} rendu · ${selectedHole.source} ${selectedHole.sourceHole}</small>
       </div>
-      <div class="mobile-stepper">
+      <button type="button" class="score-tap-cell ${state.activeScoreCell === grossCell ? "active" : ""}" onclick="selectScoreCell('${teamId}', ${selectedHole.number}, '${playerId}', 'gross')">
         <span>Score</span>
-        <div>
-          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', -1)">−</button>
-          <input type="number" min="1" max="12" placeholder="${selectedHole.par}" value="${grossValue}" onchange="updatePlayerScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', this.value)" />
-          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'gross', 1)">+</button>
-        </div>
-      </div>
-      <div class="mobile-stepper compact">
+        <b>${grossValue}</b>
+      </button>
+      <button type="button" class="score-tap-cell ${state.activeScoreCell === puttCell ? "active" : ""}" onclick="selectScoreCell('${teamId}', ${selectedHole.number}, '${playerId}', 'putts')">
         <span>Putts</span>
-        <div>
-          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', -1)">−</button>
-          <input type="number" min="0" max="6" placeholder="2" value="${puttValue}" onchange="updatePlayerScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', this.value)" />
-          <button type="button" onclick="quickSetScore('${teamId}', ${selectedHole.number}, '${playerId}', 'putts', 1)">+</button>
-        </div>
+        <b>${puttValue}</b>
+      </button>
+    </div>
+  `;
+}
+
+function renderScoreKeypad() {
+  const activeLabel = state.activeScoreCell ? "Case sélectionnée" : "Choisis une case Score ou Putts";
+  return `
+    <div class="mobile-keypad-card">
+      <div class="keypad-status">
+        <strong>${activeLabel}</strong>
+        <button class="btn" type="button" onclick="clearScoreCell()">Effacer</button>
+      </div>
+      <div class="mobile-keypad">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((value) => `
+          <button class="keypad-key" type="button" onclick="keypadScore(${value})">${value}</button>
+        `).join("")}
+        <button class="keypad-key muted" type="button" onclick="keypadScore(0)">0</button>
       </div>
     </div>
   `;
 }
 
 function renderSummary() {
+  const selectedSummaryTeam = team(state.selectedSummaryTeamId) || state.teams[0];
   return `
     <div class="grid">
       <article class="panel">
@@ -962,7 +1016,10 @@ function renderSummary() {
             <p>Suivi collectif : binôme 1, binôme 2 et cumul global de l'équipe de 4.</p>
           </div>
         </div>
-        <div class="panel-body">${renderSummaryTable()}</div>
+        <div class="panel-body">
+          ${renderSummaryCards()}
+          ${renderAugustaScorecard(selectedSummaryTeam)}
+        </div>
       </article>
       <article class="panel">
         <div class="panel-head">
@@ -979,39 +1036,120 @@ function renderSummary() {
   `;
 }
 
-function renderSummaryTable(extraClass = "") {
+function renderSummaryCards() {
   const rows = state.teams.map((item) => ({ ...item, totals: teamTotals(item.id) }));
   const combined = combinedTotals();
   return `
-    <div class="summary-table ${extraClass}">
-      <div class="summary-row muted">
-        <strong>Score</strong>
-        <strong>Validés</strong>
-        <strong>En cours</strong>
-        <strong>Net</strong>
-        <strong>Brut</strong>
-        <strong>Putts</strong>
-      </div>
+    <div class="summary-cards">
       ${rows.map((item, index) => `
-        <div class="summary-row">
-          <div><span class="badge blue">Equipe ${index + 1}</span> <strong>${item.name}</strong></div>
-          <strong>${item.totals.validated}/18</strong>
-          <strong>${currentHoleForTeam(item.id)}</strong>
-          <strong>${item.totals.net}</strong>
-          <strong>${item.totals.gross}</strong>
-          <strong>${item.totals.putts}</strong>
-        </div>
+        <button class="summary-team-card ${state.selectedSummaryTeamId === item.id ? "active" : ""}" onclick="setSummaryTeam('${item.id}')">
+          <div class="summary-card-title">
+            <span class="badge blue">Equipe ${index + 1}</span>
+            <strong>${item.name}</strong>
+          </div>
+          <div class="summary-metrics">
+            <div><span>Trous validés</span><strong>${item.totals.validated}/18</strong></div>
+            <div><span>Trou en cours</span><strong>${currentHoleForTeam(item.id)}</strong></div>
+            <div><span>Net</span><strong>${item.totals.net}</strong></div>
+            <div><span>Brut</span><strong>${item.totals.gross}</strong></div>
+            <div><span>Putts</span><strong>${item.totals.putts}</strong></div>
+          </div>
+        </button>
       `).join("")}
-      <div class="summary-row">
-        <div><span class="badge gold">A+B</span> <strong>Cumul équipe complète</strong></div>
-        <strong>${combined.validated}/36</strong>
-        <strong>-</strong>
-        <strong>${combined.net}</strong>
-        <strong>${combined.gross}</strong>
-        <strong>${combined.putts}</strong>
+      <div class="summary-team-card combined">
+        <div class="summary-card-title">
+          <span class="badge gold">A+B</span>
+          <strong>Cumul équipe complète</strong>
+        </div>
+        <div class="summary-metrics">
+          <div><span>Trous validés</span><strong>${combined.validated}/36</strong></div>
+          <div><span>Trou en cours</span><strong>Shotgun</strong></div>
+          <div><span>Net</span><strong>${combined.net}</strong></div>
+          <div><span>Brut</span><strong>${combined.gross}</strong></div>
+          <div><span>Putts</span><strong>${combined.putts}</strong></div>
+        </div>
       </div>
     </div>
   `;
+}
+
+function renderAugustaScorecard(selectedTeam) {
+  const current = currentHoleForTeam(selectedTeam.id);
+  return `
+    <div class="augusta-card">
+      <div class="augusta-head">
+        <div>
+          <span class="badge gold">Carte Augusta</span>
+          <h4>${selectedTeam.name}</h4>
+        </div>
+        <span class="badge blue">Trou en cours ${current}</span>
+      </div>
+      ${renderAugustaNine(selectedTeam, state.holes.slice(0, 9), "Aller")}
+      ${renderAugustaNine(selectedTeam, state.holes.slice(9), "Retour")}
+    </div>
+  `;
+}
+
+function renderAugustaNine(selectedTeam, holes, label) {
+  return `
+    <div class="scorecard-wrap">
+      <table class="augusta-table">
+        <caption>${label}</caption>
+        <tbody>
+          <tr>
+            <th>Trou</th>
+            ${holes.map((item) => `<td class="${augustaHoleClass(selectedTeam.id, item.number)}">${item.number}</td>`).join("")}
+            <td>Total</td>
+          </tr>
+          <tr>
+            <th>Par</th>
+            ${holes.map((item) => `<td>${item.par}</td>`).join("")}
+            <td>${holes.reduce((sum, item) => sum + item.par, 0)}</td>
+          </tr>
+          <tr>
+            <th>Origine</th>
+            ${holes.map((item) => `<td>${item.source[0]}${item.sourceHole}</td>`).join("")}
+            <td>-</td>
+          </tr>
+          <tr>
+            <th>Brut</th>
+            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "gross")}</td>`).join("")}
+            <td>${sumScorecard(selectedTeam.id, holes, "gross")}</td>
+          </tr>
+          <tr>
+            <th>Net</th>
+            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "net")}</td>`).join("")}
+            <td>${sumScorecard(selectedTeam.id, holes, "net")}</td>
+          </tr>
+          <tr>
+            <th>Putts</th>
+            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "putts")}</td>`).join("")}
+            <td>${sumScorecard(selectedTeam.id, holes, "putts")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function augustaHoleClass(teamId, holeNumber) {
+  const classes = [];
+  if (currentHoleForTeam(teamId) === holeNumber) classes.push("current");
+  if (isHoleValidated(teamId, holeNumber)) classes.push("validated");
+  return classes.join(" ");
+}
+
+function scorecardValue(teamId, holeNumber, field) {
+  const result = teamHoleResult(teamId, holeNumber);
+  if (!result.bestGross) return "";
+  if (field === "gross") return result.bestGross;
+  if (field === "net") return result.bestNet;
+  if (field === "putts") return result.putts;
+  return "";
+}
+
+function sumScorecard(teamId, holes, field) {
+  return holes.reduce((sum, item) => sum + (Number(scorecardValue(teamId, item.number, field)) || 0), 0);
 }
 
 function renderPlayerStats(currentPlayer) {

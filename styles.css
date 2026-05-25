@@ -406,6 +406,144 @@ button {
   border-bottom: 0;
 }
 
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.summary-team-card {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfa;
+  color: var(--ink);
+  text-align: left;
+}
+
+button.summary-team-card {
+  cursor: pointer;
+}
+
+.summary-team-card.active {
+  border-color: var(--green);
+  background: #eef8f2;
+}
+
+.summary-team-card.combined {
+  background: #fffaf0;
+}
+
+.summary-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.summary-card-title strong {
+  font-size: 17px;
+}
+
+.summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summary-metrics div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.summary-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.summary-metrics strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 20px;
+}
+
+.augusta-card {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #cfd9c8;
+  border-radius: 8px;
+  background: #f8faf5;
+}
+
+.augusta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.augusta-head h4 {
+  margin: 6px 0 0;
+  font-size: 20px;
+}
+
+.scorecard-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
+.augusta-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid #cfd9c8;
+  border-radius: 8px;
+  background: white;
+}
+
+.augusta-table caption {
+  padding: 8px 0;
+  color: var(--green-dark);
+  font-weight: 900;
+  text-align: left;
+}
+
+.augusta-table th,
+.augusta-table td {
+  min-width: 54px;
+  padding: 8px 6px;
+  border: 1px solid #dde5db;
+  text-align: center;
+  font-size: 13px;
+}
+
+.augusta-table th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #ecf4e8;
+  color: var(--green-dark);
+  font-weight: 900;
+}
+
+.augusta-table td.current {
+  background: #fff2d8;
+  color: #7c5311;
+  font-weight: 950;
+}
+
+.augusta-table td.validated {
+  box-shadow: inset 0 -3px 0 #1f7a4d;
+}
+
 .score-row {
   grid-template-columns: 1fr 98px 98px;
   padding: 12px;
@@ -522,7 +660,7 @@ button {
 
 .mobile-player-score-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 116px 104px;
+  grid-template-columns: minmax(0, 1fr) 72px 72px;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -543,43 +681,79 @@ button {
   font-size: 12px;
 }
 
-.mobile-stepper {
+.score-tap-cell {
   display: grid;
   gap: 4px;
+  place-items: center;
+  min-height: 60px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
 }
 
-.mobile-stepper span {
+.score-tap-cell span {
   color: var(--muted);
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.mobile-stepper div {
+.score-tap-cell b {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 30px;
-  gap: 4px;
-}
-
-.mobile-stepper button {
-  min-width: 30px;
-  min-height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: white;
-  color: var(--green-dark);
-  font-weight: 900;
-}
-
-.mobile-stepper input {
   width: 100%;
-  min-width: 0;
   min-height: 34px;
-  padding: 0 4px;
-  border: 1px solid var(--line);
+  place-items: center;
   border-radius: 6px;
-  text-align: center;
+  background: #eef1ee;
+  font-size: 22px;
   font-weight: 900;
+}
+
+.score-tap-cell.active {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
+.score-tap-cell.active b {
+  background: white;
+}
+
+.mobile-keypad-card {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.keypad-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mobile-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.keypad-key {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8faf8;
+  color: var(--green-dark);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.keypad-key.muted {
+  grid-column: 1 / -1;
+  color: var(--red);
 }
 
 .totals {
@@ -716,8 +890,18 @@ button {
   .grid.two,
   .grid.three,
   .totals,
-  .stats-grid {
+  .stats-grid,
+  .summary-cards {
     grid-template-columns: 1fr;
+  }
+
+  .summary-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .augusta-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .hero {
@@ -737,18 +921,19 @@ button {
   }
 
   .mobile-player-score-row {
-    grid-template-columns: 1fr 92px 84px;
+    grid-template-columns: 1fr 66px 66px;
     gap: 6px;
     padding: 8px;
   }
 
-  .mobile-stepper div {
-    grid-template-columns: 24px minmax(0, 1fr) 24px;
+  .score-tap-cell {
+    min-height: 56px;
+    padding: 5px;
   }
 
-  .mobile-stepper button,
-  .mobile-stepper input {
-    min-height: 32px;
+  .score-tap-cell b {
+    min-height: 30px;
+    font-size: 20px;
   }
 
   .drive-picker {
