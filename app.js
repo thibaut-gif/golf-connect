@@ -94,6 +94,7 @@ function createInitialState() {
     activeView: "home",
     selectedTeamId: "team-luc-thibaut",
     selectedSummaryTeamId: "team-luc-thibaut",
+    scorecardOverlay: null,
     selectedHole: 1,
     activeScoreCell: null,
     currentHoles: {},
@@ -605,6 +606,41 @@ function setSummaryTeam(teamId) {
   render();
 }
 
+async function openSummaryScorecard(target) {
+  state.scorecardOverlay = target;
+  if (target !== "combined") state.selectedSummaryTeamId = target;
+  saveLocalOnly();
+  render();
+  await requestLandscapeMode();
+}
+
+async function closeSummaryScorecard() {
+  state.scorecardOverlay = null;
+  saveLocalOnly();
+  render();
+  await exitLandscapeMode();
+}
+
+async function requestLandscapeMode() {
+  try {
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    }
+    if (screen.orientation?.lock) await screen.orientation.lock("landscape");
+  } catch (error) {
+    console.info("Landscape mode unavailable", error);
+  }
+}
+
+async function exitLandscapeMode() {
+  try {
+    if (screen.orientation?.unlock) screen.orientation.unlock();
+    if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+  } catch (error) {
+    console.info("Exit landscape unavailable", error);
+  }
+}
+
 function playerStats(playerId) {
   const playerTeam = teamForPlayer(playerId);
   return state.holes.reduce(
@@ -663,6 +699,7 @@ function render() {
       <section class="view ${state.activeView === "board" ? "active" : ""}">${renderSummary()}</section>
     </main>
     ${renderBottomNav()}
+    ${renderScorecardOverlay()}
   `;
 }
 
@@ -1006,7 +1043,6 @@ function renderScoreKeypad() {
 }
 
 function renderSummary() {
-  const selectedSummaryTeam = team(state.selectedSummaryTeamId) || state.teams[0];
   return `
     <div class="grid">
       <article class="panel">
@@ -1018,7 +1054,6 @@ function renderSummary() {
         </div>
         <div class="panel-body">
           ${renderSummaryCards()}
-          ${renderAugustaScorecard(selectedSummaryTeam)}
         </div>
       </article>
       <article class="panel">
@@ -1042,7 +1077,7 @@ function renderSummaryCards() {
   return `
     <div class="summary-cards">
       ${rows.map((item, index) => `
-        <button class="summary-team-card ${state.selectedSummaryTeamId === item.id ? "active" : ""}" onclick="setSummaryTeam('${item.id}')">
+        <button class="summary-team-card ${state.selectedSummaryTeamId === item.id ? "active" : ""}" onclick="openSummaryScorecard('${item.id}')">
           <div class="summary-card-title">
             <span class="badge blue">Equipe ${index + 1}</span>
             <strong>${item.name}</strong>
@@ -1056,7 +1091,7 @@ function renderSummaryCards() {
           </div>
         </button>
       `).join("")}
-      <div class="summary-team-card combined">
+      <button class="summary-team-card combined" onclick="openSummaryScorecard('combined')">
         <div class="summary-card-title">
           <span class="badge gold">A+B</span>
           <strong>Cumul équipe complète</strong>
@@ -1068,29 +1103,42 @@ function renderSummaryCards() {
           <div><span>Brut</span><strong>${combined.gross}</strong></div>
           <div><span>Putts</span><strong>${combined.putts}</strong></div>
         </div>
-      </div>
+      </button>
     </div>
   `;
 }
 
-function renderAugustaScorecard(selectedTeam) {
-  const current = currentHoleForTeam(selectedTeam.id);
+function renderScorecardOverlay() {
+  if (!state.scorecardOverlay) return "";
+  const isCombined = state.scorecardOverlay === "combined";
+  const selectedTeam = isCombined ? null : team(state.scorecardOverlay);
   return `
-    <div class="augusta-card">
-      <div class="augusta-head">
-        <div>
-          <span class="badge gold">Carte Augusta</span>
-          <h4>${selectedTeam.name}</h4>
+    <div class="scorecard-overlay">
+      <div class="scorecard-modal">
+        <div class="augusta-head">
+          <div>
+            <span class="badge gold">Carte Augusta</span>
+            <h4>${isCombined ? "Cumul équipe complète" : selectedTeam.name}</h4>
+          </div>
+          <div class="scorecard-actions">
+            <span class="badge blue">${isCombined ? "Brut cumulé" : `Trou en cours ${currentHoleForTeam(selectedTeam.id)}`}</span>
+            <button class="btn" onclick="closeSummaryScorecard()">Fermer</button>
+          </div>
         </div>
-        <span class="badge blue">Trou en cours ${current}</span>
+        ${isCombined ? renderCombinedScorecard() : renderTeamScorecard(selectedTeam)}
       </div>
-      ${renderAugustaNine(selectedTeam, state.holes.slice(0, 9), "Aller")}
-      ${renderAugustaNine(selectedTeam, state.holes.slice(9), "Retour")}
     </div>
   `;
 }
 
-function renderAugustaNine(selectedTeam, holes, label) {
+function renderTeamScorecard(selectedTeam) {
+  return `
+    ${renderTeamScorecardNine(selectedTeam, state.holes.slice(0, 9), "Aller")}
+    ${renderTeamScorecardNine(selectedTeam, state.holes.slice(9), "Retour")}
+  `;
+}
+
+function renderTeamScorecardNine(selectedTeam, holes, label) {
   return `
     <div class="scorecard-wrap">
       <table class="augusta-table">
@@ -1113,7 +1161,7 @@ function renderAugustaNine(selectedTeam, holes, label) {
           </tr>
           <tr>
             <th>Brut</th>
-            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "gross")}</td>`).join("")}
+            ${holes.map((item) => markedGrossCell(selectedTeam.id, item.number)).join("")}
             <td>${sumScorecard(selectedTeam.id, holes, "gross")}</td>
           </tr>
           <tr>
@@ -1125,6 +1173,47 @@ function renderAugustaNine(selectedTeam, holes, label) {
             <th>Putts</th>
             ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "putts")}</td>`).join("")}
             <td>${sumScorecard(selectedTeam.id, holes, "putts")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderCombinedScorecard() {
+  return `
+    ${renderCombinedScorecardNine(state.holes.slice(0, 9), "Aller")}
+    ${renderCombinedScorecardNine(state.holes.slice(9), "Retour")}
+  `;
+}
+
+function renderCombinedScorecardNine(holes, label) {
+  return `
+    <div class="scorecard-wrap">
+      <table class="augusta-table">
+        <caption>${label}</caption>
+        <tbody>
+          <tr>
+            <th>Trou</th>
+            ${holes.map((item) => `<td>${item.number}</td>`).join("")}
+            <td>Total</td>
+          </tr>
+          <tr>
+            <th>Par</th>
+            ${holes.map((item) => `<td>${item.par}</td>`).join("")}
+            <td>${holes.reduce((sum, item) => sum + item.par, 0)}</td>
+          </tr>
+          ${state.teams.map((selectedTeam) => `
+            <tr>
+              <th>${selectedTeam.name}</th>
+              ${holes.map((item) => markedGrossCell(selectedTeam.id, item.number)).join("")}
+              <td>${sumScorecard(selectedTeam.id, holes, "gross")}</td>
+            </tr>
+          `).join("")}
+          <tr>
+            <th>Cumul brut</th>
+            ${holes.map((item) => `<td>${combinedGrossOnHole(item.number) || ""}</td>`).join("")}
+            <td>${holes.reduce((sum, item) => sum + combinedGrossOnHole(item.number), 0)}</td>
           </tr>
         </tbody>
       </table>
@@ -1146,6 +1235,18 @@ function scorecardValue(teamId, holeNumber, field) {
   if (field === "net") return result.bestNet;
   if (field === "putts") return result.putts;
   return "";
+}
+
+function markedGrossCell(teamId, holeNumber) {
+  const value = scorecardValue(teamId, holeNumber, "gross");
+  if (!value) return "<td></td>";
+  const diff = value - hole(holeNumber).par;
+  const mark = diff < 0 ? "birdie" : diff > 0 ? "bogey" : "par";
+  return `<td><span class="score-mark ${mark}">${value}</span></td>`;
+}
+
+function combinedGrossOnHole(holeNumber) {
+  return state.teams.reduce((sum, selectedTeam) => sum + (Number(scorecardValue(selectedTeam.id, holeNumber, "gross")) || 0), 0);
 }
 
 function sumScorecard(teamId, holes, field) {
