@@ -531,6 +531,37 @@ function updateHole(index, field, value) {
   render();
 }
 
+function courseDuplicateKeys() {
+  const seen = new Set();
+  const duplicates = new Set();
+  state.holes.forEach((item) => {
+    const key = `${item.source}:${item.sourceHole}`;
+    if (seen.has(key)) duplicates.add(key);
+    seen.add(key);
+  });
+  return duplicates;
+}
+
+function duplicateKeyForHole(item) {
+  return `${item.source}:${item.sourceHole}`;
+}
+
+function courseDuplicateMessage() {
+  const duplicates = [...courseDuplicateKeys()];
+  if (!duplicates.length) return "";
+  return duplicates.map((key) => {
+    const [source, sourceHole] = key.split(":");
+    return `${source} ${sourceHole}`;
+  }).join(", ");
+}
+
+function renderHoleOptions(selectedHole) {
+  return Array.from({ length: 18 }, (_, index) => {
+    const value = index + 1;
+    return `<option value="${value}" ${Number(selectedHole) === value ? "selected" : ""}>${value}</option>`;
+  }).join("");
+}
+
 function updateMarker(teamId, markerPlayerId) {
   const selectedTeam = team(teamId);
   if (!isAdmin() && !selectedTeam?.players.includes(session?.playerId)) return;
@@ -848,6 +879,8 @@ function renderCourse() {
       </article>
     `;
   }
+  const duplicateKeys = courseDuplicateKeys();
+  const duplicateMessage = courseDuplicateMessage();
   return `
     <article class="panel">
       <div class="panel-head">
@@ -864,7 +897,7 @@ function renderCourse() {
         </div>
         <div class="course-builder">
           ${state.holes.map((item, index) => `
-            <div class="hole-row">
+            <div class="hole-row ${duplicateKeys.has(duplicateKeyForHole(item)) ? "duplicate" : ""}">
               <div class="hole-number">${item.number}</div>
               <div class="field">
                 <label>Parcours</label>
@@ -875,7 +908,9 @@ function renderCourse() {
               </div>
               <div class="field">
                 <label>Trou joué</label>
-                <input type="number" min="1" max="18" value="${item.sourceHole}" onchange="updateHole(${index}, 'sourceHole', this.value)" />
+                <select onchange="updateHole(${index}, 'sourceHole', this.value)">
+                  ${renderHoleOptions(item.sourceHole)}
+                </select>
               </div>
               <div class="field">
                 <label>Par auto</label>
@@ -888,6 +923,13 @@ function renderCourse() {
             </div>
           `).join("")}
         </div>
+        ${duplicateMessage ? `
+          <div class="course-alert">
+            Doublon à corriger avant validation : ${duplicateMessage}
+          </div>
+        ` : `
+          <div class="course-ok">Parcours sans doublon : les 18 trous sélectionnés sont uniques par parcours.</div>
+        `}
         <div class="quick-actions">
           <button class="btn primary" onclick="launchRound()">Valider le parcours et lancer la partie</button>
           <button class="btn" onclick="resetCourse()">Réinitialiser</button>
@@ -1314,6 +1356,11 @@ function resetCourse() {
 
 function launchRound() {
   if (!isAdmin()) return;
+  const duplicateMessage = courseDuplicateMessage();
+  if (duplicateMessage) {
+    alert(`Impossible de valider : doublon sur ${duplicateMessage}.`);
+    return;
+  }
   state.courseLocked = true;
   state.activeView = "score";
   state.selectedHole = 1;

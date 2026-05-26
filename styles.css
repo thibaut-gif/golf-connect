@@ -373,6 +373,13 @@ button {
   grid-template-columns: 54px 1fr 80px 80px 80px;
 }
 
+.hole-row.duplicate {
+  padding: 8px;
+  border: 1px solid #e2a4a4;
+  border-radius: 8px;
+  background: #fff5f5;
+}
+
 .leader-row {
   grid-template-columns: 1fr 74px 74px 74px;
   padding: 12px 0;
@@ -645,6 +652,25 @@ button.summary-team-card {
   display: grid;
   place-items: center;
   font-weight: 900;
+}
+
+.course-alert,
+.course-ok {
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.course-alert {
+  border: 1px solid #e2a4a4;
+  background: #fff5f5;
+  color: #9a2f2f;
+}
+
+.course-ok {
+  border: 1px solid #b9d8c5;
+  background: #eff8f2;
+  color: #135a3a;
 }
 
 .score-card {
