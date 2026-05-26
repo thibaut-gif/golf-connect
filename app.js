@@ -1290,7 +1290,7 @@ function markedPlayerGrossCell(teamId, holeNumber, playerId) {
 
 function markedScoreCell(value, par) {
   const diff = value - par;
-  const mark = diff < 0 ? "birdie" : diff > 0 ? "bogey" : "par";
+  const mark = diff < 0 ? "birdie" : diff >= 2 ? "double-bogey" : diff > 0 ? "bogey" : "par";
   return `<td><span class="score-mark ${mark}">${value}</span></td>`;
 }
 

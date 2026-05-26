@@ -601,6 +601,12 @@ button.summary-team-card {
   border-radius: 2px;
 }
 
+.score-mark.double-bogey {
+  border: 2px solid #9a2f2f;
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px white, 0 0 0 5px #9a2f2f;
+}
+
 .score-mark.par {
   border: 2px solid transparent;
 }
