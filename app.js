@@ -1159,20 +1159,17 @@ function renderTeamScorecardNine(selectedTeam, holes, label) {
             ${holes.map((item) => `<td>${item.source[0]}${item.sourceHole}</td>`).join("")}
             <td>-</td>
           </tr>
-          <tr>
-            <th>Brut</th>
+          ${selectedTeam.players.map((playerId) => `
+            <tr>
+              <th>${player(playerId).name}</th>
+              ${holes.map((item) => markedPlayerGrossCell(selectedTeam.id, item.number, playerId)).join("")}
+              <td>${sumPlayerGross(selectedTeam.id, holes, playerId)}</td>
+            </tr>
+          `).join("")}
+          <tr class="team-score-row">
+            <th>Score équipe</th>
             ${holes.map((item) => markedGrossCell(selectedTeam.id, item.number)).join("")}
             <td>${sumScorecard(selectedTeam.id, holes, "gross")}</td>
-          </tr>
-          <tr>
-            <th>Net</th>
-            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "net")}</td>`).join("")}
-            <td>${sumScorecard(selectedTeam.id, holes, "net")}</td>
-          </tr>
-          <tr>
-            <th>Putts</th>
-            ${holes.map((item) => `<td>${scorecardValue(selectedTeam.id, item.number, "putts")}</td>`).join("")}
-            <td>${sumScorecard(selectedTeam.id, holes, "putts")}</td>
           </tr>
         </tbody>
       </table>
@@ -1240,7 +1237,17 @@ function scorecardValue(teamId, holeNumber, field) {
 function markedGrossCell(teamId, holeNumber) {
   const value = scorecardValue(teamId, holeNumber, "gross");
   if (!value) return "<td></td>";
-  const diff = value - hole(holeNumber).par;
+  return markedScoreCell(value, hole(holeNumber).par);
+}
+
+function markedPlayerGrossCell(teamId, holeNumber, playerId) {
+  const score = getPlayerScore(teamId, holeNumber, playerId);
+  if (score.gross === "") return "<td></td>";
+  return markedScoreCell(Number(score.gross), hole(holeNumber).par);
+}
+
+function markedScoreCell(value, par) {
+  const diff = value - par;
   const mark = diff < 0 ? "birdie" : diff > 0 ? "bogey" : "par";
   return `<td><span class="score-mark ${mark}">${value}</span></td>`;
 }
@@ -1251,6 +1258,13 @@ function combinedGrossOnHole(holeNumber) {
 
 function sumScorecard(teamId, holes, field) {
   return holes.reduce((sum, item) => sum + (Number(scorecardValue(teamId, item.number, field)) || 0), 0);
+}
+
+function sumPlayerGross(teamId, holes, playerId) {
+  return holes.reduce((sum, item) => {
+    const score = getPlayerScore(teamId, item.number, playerId);
+    return sum + (Number(score.gross) || 0);
+  }, 0);
 }
 
 function renderPlayerStats(currentPlayer) {
